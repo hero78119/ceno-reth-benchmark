@@ -8,6 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     clang \
     libclang-dev \
     curl \
+    openssh-client \
     git \
     ca-certificates \
   && rm -rf /var/lib/apt/lists/*
@@ -78,5 +79,4 @@ ENV PATH="/opt/venv/bin:${PATH}" \
 
 EXPOSE 8000
 ENTRYPOINT ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000"]
-
 
