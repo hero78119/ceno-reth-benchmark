@@ -31,6 +31,7 @@ use openvm_transpiler::{elf::Elf, openvm_platform::memory::MEM_SIZE};
 pub use reth_primitives;
 use serde_json::json;
 use std::{
+    env,
     fs,
     path::{Path, PathBuf},
     sync::LazyLock,
@@ -161,16 +162,38 @@ pub fn reth_vm_config(app_log_blowup: usize) -> SdkVmConfig {
 pub const RETH_DEFAULT_APP_LOG_BLOWUP: usize = 1;
 pub const RETH_DEFAULT_LEAF_LOG_BLOWUP: usize = 1;
 
-static WORKSPACE_ROOT: LazyLock<&Path> = LazyLock::new(|| {
-    let path = MetadataCommand::new()
-        .no_deps()
-        .exec()
-        .expect("failed to execute cargo-metadata")
-        .workspace_root
-        .into_std_path_buf();
-    eprintln!("PROJECT_ROOT_DIR = {}", path.display());
-    Box::leak(path.into_boxed_path())
-});
+fn discover_workspace_root() -> PathBuf {
+    if let Ok(path) = env::var("WORKSPACE_ROOT") {
+        let pb = PathBuf::from(path);
+        eprintln!("WORKSPACE_ROOT (env) = {}", pb.display());
+        return pb;
+    }
+
+    if let Ok(metadata) = MetadataCommand::new().no_deps().exec() {
+        let root = metadata.workspace_root.into_std_path_buf();
+        eprintln!("WORKSPACE_ROOT (cargo-metadata) = {}", root.display());
+        return root;
+    }
+
+    if let Ok(exe_path) = env::current_exe() {
+        let mut dir = exe_path.parent().map(Path::to_path_buf).unwrap_or_else(|| PathBuf::from("."));
+        loop {
+            if dir.join("Cargo.lock").exists() {
+                eprintln!("WORKSPACE_ROOT (inferred from exe) = {}", dir.display());
+                return dir;
+            }
+            if !dir.pop() {
+                break;
+            }
+        }
+    }
+
+    let cwd = env::current_dir().unwrap_or_else(|_| PathBuf::from("."));
+    eprintln!("WORKSPACE_ROOT fallback to cwd = {}", cwd.display());
+    cwd
+}
+
+static WORKSPACE_ROOT: LazyLock<PathBuf> = LazyLock::new(discover_workspace_root);
 
 fn setup() -> (Vec<u8>, Program, Platform) {
     let stack_size = 128 * 1024 * 1024;

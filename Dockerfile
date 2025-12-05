@@ -81,6 +81,7 @@ RUN S5CMD_VER=$(curl -s https://api.github.com/repos/peak/s5cmd/releases/latest 
 WORKDIR /app
 COPY --from=builder /app/target/release/ceno-reth-benchmark-bin /usr/local/bin/ceno-reth-benchmark-bin
 COPY --from=builder /app/bin/ceno-host/elf/ceno-client-eth /app/bin/ceno-host/elf/ceno-client-eth
+COPY --from=builder /app/target/riscv32im-ceno-zkvm-elf/release/ceno-client-eth /app/target/riscv32im-ceno-zkvm-elf/release/ceno-client-eth
 COPY server /app/server
 
 RUN python3 -m venv /opt/venv \
@@ -96,7 +97,8 @@ ENV RUST_LOG="info,p3_=warn" \
 VOLUME ["/app/rpc-cache", "/root/.openvm/params"]
 
 ENV PATH="/opt/venv/bin:${PATH}" \
-    OVM_BIN="/usr/local/bin/ceno-reth-benchmark-bin"
+    OVM_BIN="/usr/local/bin/ceno-reth-benchmark-bin" \
+    WORKSPACE_ROOT="/app"
 
 EXPOSE 8000
 ENTRYPOINT ["uvicorn", "server.main:app", "--host", "0.0.0.0", "--port", "8000"]
