@@ -3,13 +3,31 @@
 At the repo root (so `cd ..` first)
 
 
-```
-DOCKER_BUILDKIT=1 docker build . -t reth-server:latest  --secret id=sshkey,src=$HOME/.ssh/<PRI_KEY_FILE_PATH>  --build-arg GIT_HOST=github.com
+### Build variants
+
+All builds require access to the private [`ceno-gpu`](https://github.com/scroll-tech/ceno-gpu/) repo, so forward SSH key:
+
+```bash
+DOCKER_BUILDKIT=1 docker build \
+  --secret id=sshkey,src=$HOME/.ssh/<PRI_KEY_FILE_PATH> \
+  --build-arg GIT_HOST=github.com \
+  -t reth-server:latest \
+  .
 ```
 
-> need to pass `--secret id=sshkey,src=$HOME/.ssh/<PRI_KEY_FILE_PATH>` to be able to access private [ceno-gpu repo](https://github.com/scroll-tech/ceno-gpu/)
+Select features via `--build-arg FEATURES=...`:
 
-Then start server
+- GPU build (default): `--build-arg FEATURES="metrics,jemalloc,gpu"`
+- CPU-only build: `--build-arg FEATURES="metrics,jemalloc"` (omit GPU extras)
+
+### Run
+
+```bash
+docker run --gpus all \
+  -p 8000:8000 \
+  -v /path/on/host/jobs:/app/jobs \
+  -e ETH_RPC_URL="<RPC URL>" \
+  reth-server:latest
 ```
-docker run --gpus all -p 8000:8000 reth-server:latest -e ETH_RPC_URL="<RPC URL>"
-```
+
+Mounting `/app/jobs` lets you persist `block_data` and logs between runs. For CPU-only images drop `--gpus all` and use the CPU build flag. Set any other env vars (APP_PK_URI, AGG_PK_URI, JOBS_DIR, etc.) as needed.
