@@ -3,11 +3,13 @@ set -euo pipefail
 
 S3_BUCKET="${S3_BUCKET:-cloud-proving-staging-data}"
 S3_PREFIX="${S3_PREFIX:-proofs/testing}"
+ETH_RPC_URL="${ETH_RPC_URL:-}"
+BLOCK_NUMBER_OVERRIDE="${BLOCK_NUMBER:-}"
 
-# Wrapper around the OpenVM benchmark binary to allow post-processing
+# Wrapper around the Ceno benchmark binary to allow post-processing
 # after proving completes. All arguments are forwarded to the binary.
 
-BIN_PATH="${OVM_BIN:-/usr/local/bin/openvm-reth-benchmark-bin}"
+BIN_PATH="${OVM_BIN:-/usr/local/bin/ceno-reth-benchmark-bin}"
 JOBS_DIR="${JOBS_DIR:-/app/jobs}"
 MODE="${MODE:-prove-stark}"
 APP_LOG_BLOWUP="${APP_LOG_BLOWUP:-1}"
@@ -36,27 +38,77 @@ mkdir -p "$job_dir"
 
 echo "[prove_block.sh] Starting proof at $(date -Is) with BIN=$BIN_PATH" >&2
 echo "[prove_block.sh] Job dir: $job_dir" >&2
-echo "[prove_block.sh] Downloading input from s3://${S3_BUCKET}/${S3_PREFIX}/${PROOF_UUID}" >&2
 
-# Try to download as a prefix first; if that fails, try single object copy
-set +e
-s5cmd cp "s3://${S3_BUCKET}/${S3_PREFIX}/${PROOF_UUID}/input.json" "$job_dir/"
-rc=$?
-if [[ $rc -ne 0 ]]; then
-    echo "[prove_block.sh] Failed to download input from S3 (rc=$rc)" >&2
-    exit $rc
+# Determine block number: either override or fetch latest via RPC.
+if [[ -n "$BLOCK_NUMBER_OVERRIDE" ]]; then
+  BLOCK_NUMBER="$BLOCK_NUMBER_OVERRIDE"
+  echo "[prove_block.sh] Using provided block number: $BLOCK_NUMBER" >&2
+else
+  if [[ -z "$ETH_RPC_URL" ]]; then
+    echo "[prove_block.sh] ETH_RPC_URL not set and BLOCK_NUMBER not provided" >&2
+    exit 1
+  fi
+  echo "[prove_block.sh] Fetching latest block number from $ETH_RPC_URL" >&2
+  BLOCK_NUMBER="$(curl -s -X POST \
+    -H 'Content-Type: application/json' \
+    --data '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' \
+    "$ETH_RPC_URL" | python3 -c 'import json,sys; data=json.load(sys.stdin); print(int(data["result"], 16))' 2>/dev/null)" || true
+  if [[ -z "$BLOCK_NUMBER" ]]; then
+    echo "[prove_block.sh] Failed to fetch latest block number from RPC" >&2
+    exit 1
+  fi
+  echo "[prove_block.sh] Latest block number: $BLOCK_NUMBER" >&2
 fi
 
-set -e
+cache_root="$job_dir/block_data"
+mkdir -p "$cache_root"
 
-# Determine input path
-INPUT_PATH="$job_dir/input.json"
+find_generated_input() {
+  if [[ ! -d "$cache_root/input" ]]; then
+    echo ""
+    return
+  fi
+  local candidate
+  candidate="$(find "$cache_root/input" -maxdepth 2 -type f -name "${BLOCK_NUMBER}.bin" 2>/dev/null | head -n1 || true)"
+  echo "$candidate"
+}
 
-if [[ -z "$INPUT_PATH" ]]; then
-  echo "[prove_block.sh] Could not determine input file in $job_dir" >&2
-  exit 1
+GENERATED_INPUT_PATH="$(find_generated_input)"
+
+if [[ -n "$GENERATED_INPUT_PATH" ]]; then
+  echo "[prove_block.sh] Reusing existing generated input $GENERATED_INPUT_PATH" >&2
+else
+  echo "[prove_block.sh] Generating input locally via --mode make-input" >&2
+  "$BIN_PATH" \
+    --mode make-input \
+    --block-number "$BLOCK_NUMBER" \
+    --rpc-url "$ETH_RPC_URL" \
+    --generated-input-path "$cache_root"
+
+  GENERATED_INPUT_PATH="$(find_generated_input)"
+  if [[ -z "$GENERATED_INPUT_PATH" ]]; then
+    echo "[prove_block.sh] Generated input not found for block $BLOCK_NUMBER under $cache_root" >&2
+    exit 1
+  fi
 fi
+
+if [[ "${SKIP_S3_UPLOAD:-0}" != "1" ]]; then
+  echo "[prove_block.sh] Uploading generated input to s3://${S3_BUCKET}/${S3_PREFIX}/${PROOF_UUID}/${BLOCK_NUMBER}.bin" >&2
+  set +e
+  s5cmd cp "$GENERATED_INPUT_PATH" "s3://${S3_BUCKET}/${S3_PREFIX}/${PROOF_UUID}/${BLOCK_NUMBER}.bin"
+  upload_rc=$?
+  if [[ $upload_rc -ne 0 ]]; then
+    echo "[prove_block.sh] Warning: failed to upload generated input to S3 (rc=$upload_rc)" >&2
+  fi
+  set -e
+else
+  echo "[prove_block.sh] SKIP_S3_UPLOAD=1; not uploading generated input" >&2
+fi
+
+INPUT_PATH="$GENERATED_INPUT_PATH"
 echo "[prove_block.sh] Using input: $INPUT_PATH" >&2
+
+echo "[prove_block.sh] Starting proof with --mode $MODE for block $BLOCK_NUMBER" >&2
 
 start_ts_ms=$(date +%s%3N)
 PROOF_JSON="$job_dir/proof.json"
@@ -65,8 +117,10 @@ OUTPUT_PATH="$job_dir/metrics.json"
 
 "$BIN_PATH" \
   --mode "$MODE" \
-  --block-number 1234 \
+  --block-number "$BLOCK_NUMBER" \
   --input-path "$INPUT_PATH" \
+  --cache-dir "$cache_root" \
+  --rpc-url "$ETH_RPC_URL" \
   --app-log-blowup "$APP_LOG_BLOWUP" \
   --leaf-log-blowup "$LEAF_LOG_BLOWUP" \
   --internal-log-blowup "$INTERNAL_LOG_BLOWUP" \
@@ -74,9 +128,10 @@ OUTPUT_PATH="$job_dir/metrics.json"
   --max-segment-length "$MAX_SEGMENT_LENGTH" \
   --segment-max-cells "$SEGMENT_MAX_CELLS" \
   --output-dir "$job_dir" \
-  --app-pk-path /app/app_pk \
-  --agg-pk-path /app/agg_pk \
   --skip-comparison
+  # --app-pk-path /app/app_pk \
+  # --agg-pk-path /app/agg_pk \
+
 status=$?
 
 end_ts_ms=$(date +%s%3N)
@@ -110,5 +165,3 @@ else
 fi
 
 exit $status
-
-
