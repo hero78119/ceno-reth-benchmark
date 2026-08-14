@@ -105,6 +105,14 @@ on:
         required: false
         type: string
         default: "3048"
+      gpu_phase_reservation_release:
+        description: "Value for CENO_GPU_PHASE_RESERVATION_RELEASE"
+        required: false
+        type: choice
+        default: "0"
+        options:
+          - "0"
+          - "1"
       chip_proving_mode:
         description: "Bounded chip scheduler lane count, or sequential control"
         required: false
@@ -318,6 +326,7 @@ jobs:
           CENO_CHIP_PROVING_MODE="${chip_proving_mode}" \
           CENO_CHIP_PROVING_LANES="${chip_proving_lanes}" \
           CENO_GPU_LARGE_TASK_BOOKING_MARGIN_MB=${{ inputs.gpu_large_task_booking_margin_mb }} \
+          CENO_GPU_PHASE_RESERVATION_RELEASE=${{ inputs.gpu_phase_reservation_release }} \
           CENO_GPU_ENABLE_WITGEN=${{ inputs.gpu_enable_witgen }} \
           CENO_MAX_CELL_PER_SHARD=${{ inputs.max_cell_per_shard }} \
           RUST_MIN_STACK=536870912 \
@@ -526,6 +535,7 @@ jobs:
           CENO_CHIP_PROVING_MODE="${chip_proving_mode}" \
           CENO_CHIP_PROVING_LANES="${chip_proving_lanes}" \
           CENO_GPU_LARGE_TASK_BOOKING_MARGIN_MB=${{ inputs.gpu_large_task_booking_margin_mb }} \
+          CENO_GPU_PHASE_RESERVATION_RELEASE=${{ inputs.gpu_phase_reservation_release }} \
           RUST_MIN_STACK=536870912 \
           CENO_GPU_ENABLE_WITGEN=${{ inputs.gpu_enable_witgen }} \
           CENO_MAX_CELL_PER_SHARD=${{ inputs.max_cell_per_shard }} \
