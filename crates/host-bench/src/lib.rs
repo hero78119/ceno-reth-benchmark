@@ -63,6 +63,8 @@ use ceno_zkvm::e2e::{
 use ceno_zkvm::e2e::{
     prepare_fulltracer_aot_program, prepare_preflight_aot_program, replay_full_trace,
 };
+#[cfg(feature = "gpu")]
+use ceno_zkvm::multi_gpu::{discover_cuda_devices, select_device_ids, MultiGpuConfig};
 use gkr_iop::cpu::default_backend_config;
 
 struct SpanTiming {
@@ -488,6 +490,21 @@ pub struct HostArgs {
     /// app_proofs path when used in prove-stark-only mode
     #[arg(long)]
     pub app_proofs: Option<PathBuf>,
+
+    /// Comma-separated logical CUDA device ordinals. Takes precedence over --gpu-count.
+    #[cfg(feature = "gpu")]
+    #[arg(long, value_delimiter = ',')]
+    pub gpu_devices: Option<Vec<usize>>,
+
+    /// Select logical CUDA devices 0 through count-1.
+    #[cfg(feature = "gpu")]
+    #[arg(long)]
+    pub gpu_count: Option<usize>,
+
+    /// Logical CUDA device used by recursion after base proving.
+    #[cfg(feature = "gpu")]
+    #[arg(long)]
+    pub recursion_gpu_device: Option<usize>,
 }
 
 #[cfg(feature = "openvm-backend")]
@@ -770,6 +787,26 @@ pub async fn run_ceno_reth_benchmark(args: HostArgs) -> eyre::Result<()> {
         .unwrap_or((1 << 30) * 8 / 4 / 2);
     println!("ceno max_cell_per_shard: {max_cell_per_shard}");
 
+    #[cfg(feature = "gpu")]
+    let multi_gpu_config = {
+        let available = discover_cuda_devices()
+            .map_err(|error| eyre::eyre!("failed to discover CUDA devices: {error}"))?
+            .len();
+        let device_ids = select_device_ids(args.gpu_devices.as_deref(), args.gpu_count, available)
+            .map_err(|error| eyre::eyre!(error))?;
+        let mut config = MultiGpuConfig::new(device_ids).map_err(|error| eyre::eyre!(error))?;
+        if let Some(recursion_device) = args.recursion_gpu_device {
+            config = config
+                .with_recursion_device(recursion_device)
+                .map_err(|error| eyre::eyre!(error))?;
+        }
+        println!(
+            "ceno multi-gpu devices: {:?}, recursion_device: {}, shard_policy: round-robin, replay_queue_depth: 1",
+            config.device_ids, config.recursion_device
+        );
+        config
+    };
+
     let default_l_skip = env_usize_or("CENO_REC_L_SKIP", ceno_sdk::DEFAULT_RECURSION_L_SKIP);
     let default_k_whir = env_usize_or("CENO_REC_K_WHIR", ceno_sdk::DEFAULT_RECURSION_K_WHIR);
     let leaf_l_skip = env_usize_or("CENO_REC_LEAF_L_SKIP", default_l_skip);
@@ -797,6 +834,8 @@ pub async fn run_ceno_reth_benchmark(args: HostArgs) -> eyre::Result<()> {
             platform.clone(),
             MultiProver::new(0, 1, max_cell_per_shard, MAX_CYCLE_PER_SHARD),
         );
+        #[cfg(feature = "gpu")]
+        sdk.set_multi_gpu_config(multi_gpu_config.clone());
         sdk.set_aggregation_options(aggregation_options.clone());
         let sdk_setup_elapsed = sdk_setup_start.elapsed();
         println!("ceno prove-stark sdk setup time: {sdk_setup_elapsed:?}");
@@ -1414,6 +1453,14 @@ pub async fn run_ceno_reth_benchmark(args: HostArgs) -> eyre::Result<()> {
                         };
 
                         let proofs = info_span!("app.prove").in_scope(|| {
+                            #[cfg(feature = "gpu")]
+                            return ceno_sdk.generate_multi_gpu_base_proof(
+                                hints,
+                                pub_io_digest,
+                                max_steps,
+                                args.shard_id.map(|v| v as usize),
+                            );
+                            #[cfg(not(feature = "gpu"))]
                             ceno_sdk.generate_base_proof(
                                 hints,
                                 pub_io_digest,
@@ -1462,6 +1509,14 @@ pub async fn run_ceno_reth_benchmark(args: HostArgs) -> eyre::Result<()> {
                         let total_create_proof_start = std::time::Instant::now();
                         let app_prove_start = std::time::Instant::now();
                         let proofs = info_span!("app.prove").in_scope(|| {
+                            #[cfg(feature = "gpu")]
+                            return jagged_sdk.generate_multi_gpu_base_proof(
+                                hints,
+                                pub_io_digest,
+                                max_steps,
+                                args.shard_id.map(|v| v as usize),
+                            );
+                            #[cfg(not(feature = "gpu"))]
                             jagged_sdk.generate_base_proof(
                                 hints,
                                 pub_io_digest,
