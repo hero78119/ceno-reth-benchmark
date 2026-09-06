@@ -64,7 +64,9 @@ use ceno_zkvm::e2e::{
     prepare_fulltracer_aot_program, prepare_preflight_aot_program, replay_full_trace,
 };
 #[cfg(feature = "gpu")]
-use ceno_zkvm::multi_gpu::{discover_cuda_devices, select_device_ids, MultiGpuConfig};
+use ceno_zkvm::multi_gpu::{
+    MultiGpuConfig, discover_cuda_devices, parse_worker_cpu_affinity, select_device_ids,
+};
 use gkr_iop::cpu::default_backend_config;
 
 struct SpanTiming {
@@ -505,6 +507,11 @@ pub struct HostArgs {
     #[cfg(feature = "gpu")]
     #[arg(long)]
     pub recursion_gpu_device: Option<usize>,
+
+    /// Exclusive CPU set for one GPU worker. Repeat once per selected GPU.
+    #[cfg(feature = "gpu")]
+    #[arg(long)]
+    pub gpu_worker_cpus: Vec<String>,
 }
 
 #[cfg(feature = "openvm-backend")]
@@ -800,9 +807,16 @@ pub async fn run_ceno_reth_benchmark(args: HostArgs) -> eyre::Result<()> {
                 .with_recursion_device(recursion_device)
                 .map_err(|error| eyre::eyre!(error))?;
         }
+        if let Some(affinity) = parse_worker_cpu_affinity(&args.gpu_worker_cpus)
+            .map_err(|error| eyre::eyre!(error))?
+        {
+            config = config
+                .with_worker_cpu_affinity(affinity)
+                .map_err(|error| eyre::eyre!(error))?;
+        }
         println!(
-            "ceno multi-gpu devices: {:?}, recursion_device: {}, shard_policy: round-robin, replay_queue_depth: 1",
-            config.device_ids, config.recursion_device
+            "ceno multi-gpu devices: {:?}, recursion_device: {}, shard_policy: round-robin, replay_queue_depth: 1, worker_cpu_affinity: {:?}",
+            config.device_ids, config.recursion_device, config.worker_cpu_affinity
         );
         config
     };
