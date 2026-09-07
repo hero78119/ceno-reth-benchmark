@@ -65,7 +65,7 @@ use ceno_zkvm::e2e::{
 };
 #[cfg(feature = "gpu")]
 use ceno_zkvm::multi_gpu::{
-    MultiGpuConfig, discover_cuda_devices, parse_worker_cpu_affinity, select_device_ids,
+    discover_cuda_devices, parse_worker_cpu_affinity, select_device_ids, MultiGpuConfig,
 };
 use gkr_iop::cpu::default_backend_config;
 
@@ -503,11 +503,6 @@ pub struct HostArgs {
     #[arg(long)]
     pub gpu_count: Option<usize>,
 
-    /// Logical CUDA device used by recursion after base proving.
-    #[cfg(feature = "gpu")]
-    #[arg(long)]
-    pub recursion_gpu_device: Option<usize>,
-
     /// Exclusive CPU set for one GPU worker. Repeat once per selected GPU.
     #[cfg(feature = "gpu")]
     #[arg(long)]
@@ -802,21 +797,15 @@ pub async fn run_ceno_reth_benchmark(args: HostArgs) -> eyre::Result<()> {
         let device_ids = select_device_ids(args.gpu_devices.as_deref(), args.gpu_count, available)
             .map_err(|error| eyre::eyre!(error))?;
         let mut config = MultiGpuConfig::new(device_ids).map_err(|error| eyre::eyre!(error))?;
-        if let Some(recursion_device) = args.recursion_gpu_device {
-            config = config
-                .with_recursion_device(recursion_device)
-                .map_err(|error| eyre::eyre!(error))?;
-        }
-        if let Some(affinity) = parse_worker_cpu_affinity(&args.gpu_worker_cpus)
-            .map_err(|error| eyre::eyre!(error))?
+        if let Some(affinity) =
+            parse_worker_cpu_affinity(&args.gpu_worker_cpus).map_err(|error| eyre::eyre!(error))?
         {
-            config = config
-                .with_worker_cpu_affinity(affinity)
-                .map_err(|error| eyre::eyre!(error))?;
+            config =
+                config.with_worker_cpu_affinity(affinity).map_err(|error| eyre::eyre!(error))?;
         }
         println!(
-            "ceno multi-gpu devices: {:?}, recursion_device: {}, shard_policy: round-robin, replay_queue_depth: 1, worker_cpu_affinity: {:?}",
-            config.device_ids, config.recursion_device, config.worker_cpu_affinity
+            "ceno multi-gpu devices: {:?}, shard_policy: round-robin, replay_queue_depth: 1, worker_cpu_affinity: {:?}",
+            config.device_ids, config.worker_cpu_affinity
         );
         config
     };
@@ -874,10 +863,8 @@ pub async fn run_ceno_reth_benchmark(args: HostArgs) -> eyre::Result<()> {
             BenchMode::ProveStarkOnly |
             BenchMode::GenerateFixtures
     );
-    let needs_ceno_agg = matches!(
-        args.mode,
-        BenchMode::ProveStark | BenchMode::ProveStarkOnly | BenchMode::GenerateFixtures
-    );
+    let needs_ceno_agg =
+        matches!(args.mode, BenchMode::ProveStarkOnly | BenchMode::GenerateFixtures);
     let ceno_recursion_backend = ceno_recursion_backend_label();
     let mut prebuilt_jagged_sdk = if needs_ceno_sdk { Some(new_jagged_sdk()?) } else { None };
     let mut prebuilt_agg_prover = if needs_ceno_agg {
@@ -1456,7 +1443,7 @@ pub async fn run_ceno_reth_benchmark(args: HostArgs) -> eyre::Result<()> {
                         // println!("Number of segments: {}", segments.len());
                     }
                     BenchMode::ProveApp => {
-                        let ceno_sdk = prebuilt_jagged_sdk
+                        let mut ceno_sdk = prebuilt_jagged_sdk
                             .take()
                             .expect("ceno sdk should be initialized before reth-block");
                         let hints = prebuilt_hints
@@ -1508,38 +1495,32 @@ pub async fn run_ceno_reth_benchmark(args: HostArgs) -> eyre::Result<()> {
                         });
                     }
                     BenchMode::ProveStark => {
-                        let jagged_sdk = prebuilt_jagged_sdk
+                        let mut jagged_sdk = prebuilt_jagged_sdk
                             .take()
                             .expect("ceno sdk should be initialized before reth-block");
-                        let agg_prover = prebuilt_agg_prover
-                            .take()
-                            .expect("ceno agg prover should be initialized before reth-block");
                         let hints = prebuilt_hints
                             .take()
                             .expect("ceno hints should be initialized before reth-block");
                         let pub_io_digest = unsafe {
                             core::mem::transmute::<[u8; 32], [u32; 8]>(block_hash.0)
                         };
-                        let total_create_proof_start = std::time::Instant::now();
-                        let app_prove_start = std::time::Instant::now();
-                        let proofs = info_span!("app.prove").in_scope(|| {
+                        let streaming_output = info_span!("app.prove").in_scope(|| {
                             #[cfg(feature = "gpu")]
-                            return jagged_sdk.generate_multi_gpu_base_proof(
-                                hints,
-                                pub_io_digest,
-                                max_steps,
-                                args.shard_id.map(|v| v as usize),
-                            );
+                            return jagged_sdk
+                                .generate_streaming_recursion_proof(
+                                    hints,
+                                    pub_io_digest,
+                                    max_steps,
+                                )
+                                .map_err(|error| eyre::eyre!(error));
                             #[cfg(not(feature = "gpu"))]
-                            jagged_sdk.generate_base_proof(
-                                hints,
-                                pub_io_digest,
-                                max_steps,
-                                args.shard_id.map(|v| v as usize),
-                            )
-                        });
-                        let app_prove_elapsed = app_prove_start.elapsed();
-                        println!("ceno prove-stark app create_proof time: {app_prove_elapsed:?}");
+                            eyre::bail!("ceno streaming recursion proving requires the gpu feature")
+                        })?;
+                        let proofs = streaming_output.base_proofs;
+                        println!(
+                            "ceno prove-stark app create_proof time: {:?}",
+                            streaming_output.timings.base_proving
+                        );
 
                         if let Some(output_dir) = args.output_dir.as_ref() {
                             fs::create_dir_all(output_dir)?;
@@ -1548,48 +1529,30 @@ pub async fn run_ceno_reth_benchmark(args: HostArgs) -> eyre::Result<()> {
                             fs::write(path, bitcode::serialize(&proofs)?)?;
                         };
 
-                        let timed_root_output = info_span!("recursion.compress_to_root_proof")
-                            .in_scope(|| agg_prover.prove_with_root_vk_timed(&proofs))?;
-                        let root_output = timed_root_output.root_output;
                         println!(
-                            "ceno prove-stark recursion leaf aggregation time ({mode}): {:?}",
-                            timed_root_output.timings.leaf_aggregation,
+                            "ceno prove-stark recursion streaming time ({mode}): {:?}",
+                            streaming_output.timings.recursion_streaming,
                             mode = ceno_recursion_backend
                         );
                         println!(
-                            "ceno prove-stark recursion internal aggregation time ({mode}): {:?}",
-                            timed_root_output.timings.internal_aggregation,
-                            mode = ceno_recursion_backend
+                            "ceno prove-stark root verify time: {:?}",
+                            streaming_output.timings.root_verification
                         );
                         println!(
-                            "ceno prove-stark recursion root proving time ({mode}): {:?}",
-                            timed_root_output.timings.root_proving,
+                            "ceno prove-stark recursion worker count ({mode}): {}",
+                            streaming_output.worker_metrics.len(),
                             mode = ceno_recursion_backend
                         );
-                        println!(
-                            "ceno prove-stark recursion total create_proof time ({mode}): {:?}",
-                            timed_root_output.timings.total_create_proof,
-                            mode = ceno_recursion_backend
-                        );
-
-                        let root_verify_start = std::time::Instant::now();
-                        info_span!("recursion.verify").in_scope(|| {
-                            agg_prover
-                                .verify_root_proof(&root_output.root_vk, &root_output.root_proof)
-                                .expect("root proof verification failed");
-                        });
-                        let root_verify_elapsed = root_verify_start.elapsed();
-                        println!("ceno prove-stark root verify time: {root_verify_elapsed:?}");
 
                         handle_ceno_root_proof(
                             args.output_dir.as_ref(),
                             args.block_number,
-                            &root_output.root_proof,
+                            &streaming_output.root_output.root_proof,
                         )?;
 
-                        let total_create_proof_elapsed = total_create_proof_start.elapsed();
                         println!(
-                            "ceno prove-stark total create_proof time ({mode}): {total_create_proof_elapsed:?}",
+                            "ceno prove-stark total create_proof time ({mode}): {:?}",
+                            streaming_output.timings.total,
                             mode = ceno_recursion_backend
                         );
                     }
