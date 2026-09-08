@@ -168,13 +168,13 @@ openvm-p256 = { git = "https://github.com/scroll-tech/openvm.git", package = "p2
 ceno_gpu = { git = "ssh://git@github.com/scroll-tech/ceno-gpu.git", package = "cuda_hal", branch = "feat/multi_gpu", default-features = false, features = ["bb31"] }
 
 [patch."https://github.com/openvm-org/stark-backend.git"]
-openvm-codec-derive = { git = "https://github.com/hero78119/stark-backend.git", rev = "4abbf1d4987f1861a825dc87c2023da0acd15341" }
-openvm-cpu-backend = { git = "https://github.com/hero78119/stark-backend.git", rev = "4abbf1d4987f1861a825dc87c2023da0acd15341" }
-openvm-cuda-backend = { git = "https://github.com/hero78119/stark-backend.git", rev = "4abbf1d4987f1861a825dc87c2023da0acd15341" }
-openvm-cuda-builder = { git = "https://github.com/hero78119/stark-backend.git", rev = "4abbf1d4987f1861a825dc87c2023da0acd15341" }
-openvm-cuda-common = { git = "https://github.com/hero78119/stark-backend.git", rev = "4abbf1d4987f1861a825dc87c2023da0acd15341" }
-openvm-stark-backend = { git = "https://github.com/hero78119/stark-backend.git", rev = "4abbf1d4987f1861a825dc87c2023da0acd15341" }
-openvm-stark-sdk = { git = "https://github.com/hero78119/stark-backend.git", rev = "4abbf1d4987f1861a825dc87c2023da0acd15341" }
+openvm-codec-derive = { git = "https://github.com/hero78119/stark-backend.git", rev = "ce6e2a483d036e34522953f4e9e995669fb1278d" }
+openvm-cpu-backend = { git = "https://github.com/hero78119/stark-backend.git", rev = "ce6e2a483d036e34522953f4e9e995669fb1278d" }
+openvm-cuda-backend = { git = "https://github.com/hero78119/stark-backend.git", rev = "ce6e2a483d036e34522953f4e9e995669fb1278d" }
+openvm-cuda-builder = { git = "https://github.com/hero78119/stark-backend.git", rev = "ce6e2a483d036e34522953f4e9e995669fb1278d" }
+openvm-cuda-common = { git = "https://github.com/hero78119/stark-backend.git", rev = "ce6e2a483d036e34522953f4e9e995669fb1278d" }
+openvm-stark-backend = { git = "https://github.com/hero78119/stark-backend.git", rev = "ce6e2a483d036e34522953f4e9e995669fb1278d" }
+openvm-stark-sdk = { git = "https://github.com/hero78119/stark-backend.git", rev = "ce6e2a483d036e34522953f4e9e995669fb1278d" }
 
 [patch."https://github.com/axiom-crypto/openvm-kzg.git"]
 openvm = { git = "https://github.com/scroll-tech/openvm.git", branch = "feat/v1.4.1-scroll-ext" }

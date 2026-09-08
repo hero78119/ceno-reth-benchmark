@@ -4855,7 +4855,7 @@ dependencies = [
 [[package]]
 name = "openvm-codec-derive"
 version = "2.0.0"
-source = "git+https://github.com/hero78119/stark-backend.git?rev=4abbf1d4987f1861a825dc87c2023da0acd15341#4abbf1d4987f1861a825dc87c2023da0acd15341"
+source = "git+https://github.com/hero78119/stark-backend.git?rev=ce6e2a483d036e34522953f4e9e995669fb1278d#ce6e2a483d036e34522953f4e9e995669fb1278d"
 dependencies = [
  "proc-macro-crate 1.3.1",
  "proc-macro2",
@@ -4891,7 +4891,7 @@ dependencies = [
 [[package]]
 name = "openvm-cpu-backend"
 version = "2.0.0"
-source = "git+https://github.com/hero78119/stark-backend.git?rev=4abbf1d4987f1861a825dc87c2023da0acd15341#4abbf1d4987f1861a825dc87c2023da0acd15341"
+source = "git+https://github.com/hero78119/stark-backend.git?rev=ce6e2a483d036e34522953f4e9e995669fb1278d#ce6e2a483d036e34522953f4e9e995669fb1278d"
 dependencies = [
  "cfg-if",
  "derive-new 0.7.0",
@@ -4916,7 +4916,7 @@ dependencies = [
 [[package]]
 name = "openvm-cuda-backend"
 version = "2.0.0"
-source = "git+https://github.com/hero78119/stark-backend.git?rev=4abbf1d4987f1861a825dc87c2023da0acd15341#4abbf1d4987f1861a825dc87c2023da0acd15341"
+source = "git+https://github.com/hero78119/stark-backend.git?rev=ce6e2a483d036e34522953f4e9e995669fb1278d#ce6e2a483d036e34522953f4e9e995669fb1278d"
 dependencies = [
  "derive-new 0.7.0",
  "getset",
@@ -4943,7 +4943,7 @@ dependencies = [
 [[package]]
 name = "openvm-cuda-builder"
 version = "2.0.0"
-source = "git+https://github.com/hero78119/stark-backend.git?rev=4abbf1d4987f1861a825dc87c2023da0acd15341#4abbf1d4987f1861a825dc87c2023da0acd15341"
+source = "git+https://github.com/hero78119/stark-backend.git?rev=ce6e2a483d036e34522953f4e9e995669fb1278d#ce6e2a483d036e34522953f4e9e995669fb1278d"
 dependencies = [
  "cc",
  "glob",
@@ -4952,7 +4952,7 @@ dependencies = [
 [[package]]
 name = "openvm-cuda-common"
 version = "2.0.0"
-source = "git+https://github.com/hero78119/stark-backend.git?rev=4abbf1d4987f1861a825dc87c2023da0acd15341#4abbf1d4987f1861a825dc87c2023da0acd15341"
+source = "git+https://github.com/hero78119/stark-backend.git?rev=ce6e2a483d036e34522953f4e9e995669fb1278d#ce6e2a483d036e34522953f4e9e995669fb1278d"
 dependencies = [
  "bytesize",
  "ctor",
@@ -5232,7 +5232,7 @@ dependencies = [
 [[package]]
 name = "openvm-stark-backend"
 version = "2.0.0"
-source = "git+https://github.com/hero78119/stark-backend.git?rev=4abbf1d4987f1861a825dc87c2023da0acd15341#4abbf1d4987f1861a825dc87c2023da0acd15341"
+source = "git+https://github.com/hero78119/stark-backend.git?rev=ce6e2a483d036e34522953f4e9e995669fb1278d#ce6e2a483d036e34522953f4e9e995669fb1278d"
 dependencies = [
  "cfg-if",
  "derivative",
@@ -5264,7 +5264,7 @@ dependencies = [
 [[package]]
 name = "openvm-stark-sdk"
 version = "2.0.0"
-source = "git+https://github.com/hero78119/stark-backend.git?rev=4abbf1d4987f1861a825dc87c2023da0acd15341#4abbf1d4987f1861a825dc87c2023da0acd15341"
+source = "git+https://github.com/hero78119/stark-backend.git?rev=ce6e2a483d036e34522953f4e9e995669fb1278d#ce6e2a483d036e34522953f4e9e995669fb1278d"
 dependencies = [
  "dashmap",
  "derive-new 0.7.0",
