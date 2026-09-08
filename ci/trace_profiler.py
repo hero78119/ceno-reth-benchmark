@@ -117,6 +117,7 @@ def analyze_trace_log(file_path: str):
 
     # Module-level statistics for GPU operations breakdown
     module_operations = defaultdict(lambda: defaultdict(float))  # module_name -> {gpu_operation -> time}
+    explicit_app_prove_time = 0.0
 
     # E2E layer statistics
     e2e_stats = {
@@ -214,6 +215,8 @@ def analyze_trace_log(file_path: str):
             parsed = parse_duration_after(label, clean_line)
             if parsed > 0:
                 e2e_stats[key] = parsed
+                if key == 'app_prove_time':
+                    explicit_app_prove_time = parsed
 
         streaming_time = parse_duration_after(
             'ceno prove-stark recursion streaming time (gpu)', clean_line
@@ -240,6 +243,11 @@ def analyze_trace_log(file_path: str):
         root_path_match = re.search(r'wrote ceno root proof to\s+(\S+)', clean_line)
         if root_path_match:
             e2e_stats['root_proof_path'] = root_path_match.group(1)
+
+    if explicit_app_prove_time > 0.0:
+        # The benchmark timer is exact and may appear before the later rounded
+        # trace dump. Keep the span separately as the detailed-table denominator.
+        e2e_stats['app_prove_time'] = explicit_app_prove_time
 
     if app_prove_inner_time == 0.0 and e2e_stats['app_prove_time'] > 0.0:
         app_prove_inner_time = e2e_stats['app_prove_time']

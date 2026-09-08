@@ -27,9 +27,12 @@ class E2EAccountingTests(unittest.TestCase):
             'ceno prove-stark root verify time: 27.69658ms',
             'ceno prove-stark total create_proof time (gpu): 33.674897227s',
             'recursion.compress_to_root_proof [ 8.99s | 100.00% ]',
+            'app_prove.inner [ 25.0s | 75.00% ]',
         ])
         stats = result[4]
 
+        self.assertAlmostEqual(result[0], 25.0)
+        self.assertAlmostEqual(stats['app_prove_time'], 27.461683669)
         self.assertEqual(stats['recursion_mode'], 'sequential')
         self.assertAlmostEqual(stats['recursion_tail_time'], 6.146067834)
         self.assertEqual(stats['recursion_overlap_time'], 0.0)
