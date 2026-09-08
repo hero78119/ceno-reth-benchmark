@@ -867,6 +867,14 @@ pub async fn run_ceno_reth_benchmark(args: HostArgs) -> eyre::Result<()> {
         matches!(args.mode, BenchMode::ProveStarkOnly | BenchMode::GenerateFixtures);
     let ceno_recursion_backend = ceno_recursion_backend_label();
     let mut prebuilt_jagged_sdk = if needs_ceno_sdk { Some(new_jagged_sdk()?) } else { None };
+    #[cfg(feature = "gpu")]
+    if matches!(args.mode, BenchMode::ProveStark) {
+        prebuilt_jagged_sdk
+            .as_mut()
+            .expect("ceno sdk should be initialized before recursion prebuild")
+            .prepare_streaming_recursion()
+            .map_err(|error| eyre::eyre!(error.to_string()))?;
+    }
     let mut prebuilt_agg_prover = if needs_ceno_agg {
         let recursion_setup_start = std::time::Instant::now();
         let sdk = prebuilt_jagged_sdk
