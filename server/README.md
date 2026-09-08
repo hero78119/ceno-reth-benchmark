@@ -22,8 +22,14 @@ Select features via `--build-arg FEATURES=...`:
 
 ### Run
 
+The image is independent of the number of GPUs. At container startup, Docker
+chooses which physical GPUs are visible and `CENO_GPU_DEVICES` chooses which
+container-local logical GPU ordinals Ceno uses. It defaults to logical GPU `0`.
+
+Single-GPU proving with only host GPU 0 visible:
+
 ```bash
-docker run --gpus all \
+docker run --gpus '"device=0"' \
   --name reth-server \
   -p 8000:8000 \
   -v /path/on/host/jobs:/app/jobs \
@@ -31,8 +37,46 @@ docker run --gpus all \
   -e CENO_STATUS_API_KEY="<api-token>" \
   -e CENO_CLUSTER_ID="<cluster-id>" \
   -e ETH_RPC_URL="<RPC URL>" \
+  -e CENO_GPU_DEVICES="0" \
   reth-server:latest
 ```
+
+Dual-GPU proving with host GPUs 0 and 1 visible:
+
+```bash
+docker run --gpus '"device=0,1"' \
+  --name reth-server \
+  -p 8000:8000 \
+  -v /path/on/host/jobs:/app/jobs \
+  -e CENO_STATUS_API_BASE_URL="https://staging--ethproofs.netlify.app/api/v0" \
+  -e CENO_STATUS_API_KEY="<api-token>" \
+  -e CENO_CLUSTER_ID="<cluster-id>" \
+  -e ETH_RPC_URL="<RPC URL>" \
+  -e CENO_GPU_DEVICES="0,1" \
+  reth-server:latest
+```
+
+The same pattern supports more GPUs. For example, expose four host GPUs and
+select all four logical devices:
+
+```bash
+docker run --gpus '"device=0,1,2,3"' \
+  --name reth-server \
+  -p 8000:8000 \
+  -v /path/on/host/jobs:/app/jobs \
+  -e ETH_RPC_URL="<RPC URL>" \
+  -e CENO_GPU_DEVICES="0,1,2,3" \
+  reth-server:latest
+```
+
+It is also valid to expose several GPUs but use only a subset. For example,
+with host GPUs 0 and 1 exposed, `CENO_GPU_DEVICES="0"` runs single-GPU proving
+and `CENO_GPU_DEVICES="0,1"` runs dual-GPU proving. Device IDs are logical
+inside the container, not necessarily the host's original ordinals.
+
+The startup log prints the effective list as `Ceno logical GPU devices`, and
+the prover log prints `ceno multi-gpu devices`. Invalid, duplicate, or
+unavailable device IDs fail before proving.
 
 The server leaves `CENO_CHIP_PROVING_MODE` and `CENO_CHIP_PROVING_LANES`
 unset by default, so the pinned Ceno revision owns the scheduler defaults.

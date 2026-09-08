@@ -23,7 +23,13 @@ CHAIN_ID="${CHAIN_ID:-1}"
 GPU_READY_POLL_INTERVAL_SEC="${GPU_READY_POLL_INTERVAL_SEC:-10}"
 GPU_READY_MAX_ATTEMPTS="${GPU_READY_MAX_ATTEMPTS:-6}"
 PROVE_BLOCK_GPU_CHECK="${PROVE_BLOCK_GPU_CHECK:-1}"
+CENO_GPU_DEVICES="${CENO_GPU_DEVICES:-}"
 GPU_UNAVAILABLE_EXIT_CODE=75
+
+GPU_DEVICE_ARGS=()
+if [[ -n "$CENO_GPU_DEVICES" ]]; then
+  GPU_DEVICE_ARGS+=(--gpu-devices "$CENO_GPU_DEVICES")
+fi
 
 # Remove the obsolete scheduler switch inherited from older deployments.
 unset CENO_CONCURRENT_CHIP_PROVING
@@ -123,6 +129,7 @@ post_status() {
 
 echo "[prove_block.sh] Starting proof at $(date -Is) with BIN=$BIN_PATH" >&2
 echo "[prove_block.sh] Job dir: $job_dir" >&2
+echo "[prove_block.sh] Ceno logical GPU devices: ${CENO_GPU_DEVICES:-0 (default)}" >&2
 echo "[prove_block.sh] Chip scheduler overrides: mode=${CENO_CHIP_PROVING_MODE:-<rust-default>} lanes=${CENO_CHIP_PROVING_LANES:-<rust-default>}" >&2
 if [[ -f /app/ceno-revision.txt ]]; then
   echo "[prove_block.sh] Ceno revision: $(cat /app/ceno-revision.txt)" >&2
@@ -282,6 +289,7 @@ set +e
   --rpc-url "$ETH_RPC_URL" \
   --output-dir "$job_dir" \
   --skip-comparison \
+  "${GPU_DEVICE_ARGS[@]}" \
   --chain-id "$CHAIN_ID"
   # --app-pk-path /app/app_pk \
 
