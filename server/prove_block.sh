@@ -134,6 +134,17 @@ echo "[prove_block.sh] Chip scheduler overrides: mode=${CENO_CHIP_PROVING_MODE:-
 if [[ -f /app/ceno-revision.txt ]]; then
   echo "[prove_block.sh] Ceno revision: $(cat /app/ceno-revision.txt)" >&2
 fi
+if [[ -f /app/ceno-gpu-revision.txt ]]; then
+  echo "[prove_block.sh] ceno-gpu revision: $(cat /app/ceno-gpu-revision.txt)" >&2
+fi
+if [[ -f /app/cargo-lock.sha256 ]]; then
+  echo "[prove_block.sh] Cargo.lock identity: $(cat /app/cargo-lock.sha256)" >&2
+fi
+if [[ -f /app/host-binary.sha256 ]]; then
+  echo "[prove_block.sh] Host binary identity: $(cat /app/host-binary.sha256)" >&2
+else
+  echo "[prove_block.sh] Host binary identity: $(sha256sum "$BIN_PATH")" >&2
+fi
 if [[ -f /app/guest-elf.sha256 ]]; then
   echo "[prove_block.sh] Guest ELF: $(cat /app/guest-elf.sha256)" >&2
 fi
@@ -241,6 +252,8 @@ fi
 
 INPUT_PATH="$GENERATED_INPUT_PATH"
 echo "[prove_block.sh] Using input: $INPUT_PATH" >&2
+echo "[prove_block.sh] Input identity: $(sha256sum "$INPUT_PATH") size=$(stat -c %s "$INPUT_PATH")" >&2
+echo "[prove_block.sh] Replay audit shard: ${CENO_MULTI_GPU_REPLAY_AUDIT_SHARD:-<disabled>}" >&2
 
 METRICS_MD="$job_dir/${BLOCK_NUMBER}_metrics.md"
 
@@ -252,6 +265,19 @@ if [[ -n "$CENO_STATUS_API_BASE_URL" ]]; then
     sleep 300
     exit 0
   fi
+fi
+
+# A prover process assumes exclusive use of every selected GPU when it sizes
+# shard memory and creates device-local pools. The HTTP service can host more
+# than one proof UUID, so serialize only the GPU proving section across jobs.
+PROVER_LOCK_PATH="${JOBS_DIR}/.ceno-gpu-prover.lock"
+exec 9>"$PROVER_LOCK_PATH"
+echo "[prove_block.sh] Waiting for exclusive GPU prover slot: $PROVER_LOCK_PATH" >&2
+flock 9
+echo "[prove_block.sh] Acquired exclusive GPU prover slot" >&2
+if command -v nvidia-smi >/dev/null 2>&1; then
+  nvidia-smi --query-compute-apps=gpu_uuid,pid,process_name,used_memory \
+    --format=csv,noheader >&2 || true
 fi
 
 start_ts_ms=$(date +%s%3N)
@@ -295,6 +321,8 @@ set +e
 
 status=$?
 set -e
+flock -u 9
+echo "[prove_block.sh] Released exclusive GPU prover slot" >&2
 
 end_ts_ms=$(date +%s%3N)
 duration_ms=$(( end_ts_ms - start_ts_ms ))

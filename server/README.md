@@ -100,4 +100,10 @@ loop is intentionally not used for this failure mode.
 
 Mounting `/app/jobs` persists `block_data` and logs between runs. Set `CENO_STATUS_API_BASE_URL`, `CENO_STATUS_API_KEY`, and `CENO_CLUSTER_ID` to report queue/proving/proved events to the API (omit them to skip the HTTP hooks). Configure any other env vars (APP_PK_URI, AGG_PK_URI, JOBS_DIR, etc.) as needed.
 
+The server serializes the GPU proving section across proof UUIDs. Each prover
+sizes its pools under the assumption that it owns all selected devices; running
+two prover processes against the same GPUs concurrently is unsupported. Job logs
+include the locked Ceno and ceno-gpu revisions plus host, guest, and
+`Cargo.lock` hashes so a server failure can be compared exactly with CI.
+
 To debug a specific block instead of the latest, append `-e BLOCK_NUMBER="<BLOCKNUM>"` to the `docker run` command.
