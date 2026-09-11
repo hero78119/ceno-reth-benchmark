@@ -993,7 +993,7 @@ dependencies = [
 [[package]]
 name = "ceno_crypto"
 version = "0.1.0"
-source = "git+https://github.com/scroll-tech/ceno?branch=feat%2Fmulti_gpu#d05147cb4e0062d8e7491213f4feec28ebc7b782"
+source = "git+https://github.com/scroll-tech/ceno?branch=feat%2Fmulti_gpu#5a2a35fab606802ecc23689565891f351dc0916d"
 dependencies = [
  "ceno_keccak",
  "ceno_sha2",
@@ -1016,7 +1016,7 @@ dependencies = [
 [[package]]
 name = "ceno_keccak"
 version = "0.1.0"
-source = "git+https://github.com/scroll-tech/ceno?branch=feat%2Fmulti_gpu#d05147cb4e0062d8e7491213f4feec28ebc7b782"
+source = "git+https://github.com/scroll-tech/ceno?branch=feat%2Fmulti_gpu#5a2a35fab606802ecc23689565891f351dc0916d"
 dependencies = [
  "ceno_syscall",
  "tiny-keccak",
@@ -1025,7 +1025,7 @@ dependencies = [
 [[package]]
 name = "ceno_rt"
 version = "0.1.0"
-source = "git+https://github.com/scroll-tech/ceno?branch=feat%2Fmulti_gpu#d05147cb4e0062d8e7491213f4feec28ebc7b782"
+source = "git+https://github.com/scroll-tech/ceno?branch=feat%2Fmulti_gpu#5a2a35fab606802ecc23689565891f351dc0916d"
 dependencies = [
  "ceno_serde",
  "ceno_syscall",
@@ -1038,7 +1038,7 @@ dependencies = [
 [[package]]
 name = "ceno_serde"
 version = "0.1.0"
-source = "git+https://github.com/scroll-tech/ceno?branch=feat%2Fmulti_gpu#d05147cb4e0062d8e7491213f4feec28ebc7b782"
+source = "git+https://github.com/scroll-tech/ceno?branch=feat%2Fmulti_gpu#5a2a35fab606802ecc23689565891f351dc0916d"
 dependencies = [
  "bytemuck",
  "serde",
@@ -1047,7 +1047,7 @@ dependencies = [
 [[package]]
 name = "ceno_sha2"
 version = "0.1.0"
-source = "git+https://github.com/scroll-tech/ceno?branch=feat%2Fmulti_gpu#d05147cb4e0062d8e7491213f4feec28ebc7b782"
+source = "git+https://github.com/scroll-tech/ceno?branch=feat%2Fmulti_gpu#5a2a35fab606802ecc23689565891f351dc0916d"
 dependencies = [
  "ceno_syscall",
  "digest 0.10.7",
